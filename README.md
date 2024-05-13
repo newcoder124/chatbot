@@ -18,5 +18,5 @@ fastapi dev chatbot_api/main.py
 3. Start the frontend service (Streamlit)
 
 ```
-streamlit chatbot_frontend/src/main.py
+streamlit run chatbot_frontend/src/main.py
 ```

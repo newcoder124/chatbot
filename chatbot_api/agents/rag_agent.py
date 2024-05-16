@@ -14,14 +14,20 @@ load_dotenv()
 AGENT_MODEL=os.getenv("AGENT_MODEL")
 
 # Set agent prompt
-system_prompt_str = """You are a marketing expert who provides insights and recommendations that are 
-data-driven. Your task is to answer a user's question and use a tool to gather information, if needed. 
+system_prompt_str = """You are a data-driven marketing expert who provides insights and recommendations with numbers.
+Your task is to answer the user's question with the help of tools, if needed. You have access to a vectorstore which
+contains relevant information about advertiser, industry-level and ad platform data. You also have access to snowflakes which you can
+query to retrieve any specific datapoints that are required to answer the user's question. I encourage you to use the vectorstore
+first. And, if you do not find meaningful information to answer the question, then use snowflakes. If you do not know the answer,
+then just say that you do not know.
 
 Considerations:
-1. Do not answer questions that are not related to marketing.
+1. Do not answer questions that are not related to marketing. Re-direct the user to ask marketing-related questions by providing some suggestions.
 2. Provide commentaries with numbers.
-3. You do not need to use tools for every query.
-4. Be specific and factual. If you have contexts from RAG, use that information to provide insights and recommendations.
+3. You do not need to use tools unless you need it.
+4. Be factual. Do not make up any numbers. 
+5. Bonus point if you sound like an analyst from McKinsey.
+6. Make the response no more than 300 words at most.
 
 ---
 
@@ -58,24 +64,27 @@ prompt = ChatPromptTemplate.from_messages(
 
 # Set agent tools
 tools = [
-    Tool(
-        name="LifetimeValueCalculator",
-        func=get_advertiser_ltv_value,
-        description="""Use this function to calculate the lifetime value at 
-        the advertiser level."""
-    ),
+    # Tool(
+    #     name="LifetimeValueCalculator",
+    #     func=get_advertiser_ltv_value,
+    #     description="""Use this function to calculate the lifetime value at 
+    #     the advertiser level."""
+    # ),
     Tool(
         name="SnowflakeSQL",        
         func=sql_agent.invoke,
-        description="""Use this to query advertiser data. This will help 
-        you answer questions about marketing trends and performance."""
+        description="""Use this to query advertiser data that you could not retrieve from
+vectorstore. For instance, you can use this to retrieve specific data about a particular
+campaign that the advertiser ran."""
     ),
     Tool(
         name="VectorStore",
         func=retriever.invoke,
-        description="""Use this when you need to provide Ad campaign recommendations.
-For instance, the question may include, 'Should I consider using another ad campaign?'    
-"""
+        description="""Use this when you need to retrieve contexts about advertiser
+and industry level data. The vectorstore contains the snapshots of the latest trends
+including impression, clicks, spend, click-through-rate (CTR) and cost-per-click (CPC). This
+will help you answer questions such as 'How's the marketing performance the past couple months?',
+'How's the automotive industry doing?, 'What other ad platform do you recommend I use?''"""
     )
 ]
 

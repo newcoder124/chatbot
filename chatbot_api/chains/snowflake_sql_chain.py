@@ -21,10 +21,10 @@ AGENT_MODEL=os.getenv("AGENT_MODEL")
 username = os.getenv('SNOWFLAKE_USERNAME')
 password = os.getenv('SNOWFLAKE_PASSWORD')
 snowflake_account = os.getenv('SNOWFLAKE_ACCOUNT')
-database = 'VERTICAL_CLASSIFICATION'
-schema = 'PUBLIC'
-warehouse = 'COMPUTE_WH'
-role = 'ACCOUNTADMIN'
+database = os.getenv('SNOWFLAKE_DATABASE')
+schema = os.getenv('SNOWFLAKE_SCHEMA')
+warehouse = os.getenv('SNOWFLAKE_WAREHOUSE')
+role = os.getenv('SNOWFLAKE_ROLE')
 snowflake_url = f"snowflake://{username}:{password}@{snowflake_account}/{database}/{schema}?warehouse={warehouse}&role={role}"
 
 # Connect to Snowflakes database

@@ -4,7 +4,7 @@ from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.agents import create_openai_functions_agent, Tool, AgentExecutor
 from langchain_openai import ChatOpenAI
 from chains.snowflake_sql_chain import sql_agent
-from chains.vectorstore_chain import retriever
+from chains.vectorstore_chain import set_retriever
 from tools.ltv_calculator import get_advertiser_ltv_value
 
 # Load environment variables from .env file
@@ -13,8 +13,9 @@ load_dotenv()
 # Set agent chat model
 AGENT_MODEL=os.getenv("AGENT_MODEL")
 
-# Set agent prompt
-system_prompt_str = """You are a data-driven marketing expert who provides insights and recommendations with numbers.
+# Define system prompts for different modes
+system_prompts = {
+    "default": """You are a data-driven marketing expert who provides insights and recommendations with numbers.
 Your task is to answer the user's question with the help of tools, if needed. You have access to a vectorstore which
 contains relevant information about advertiser, industry-level and ad platform data. You also have access to snowflakes which you can
 query to retrieve any specific datapoints that are required to answer the user's question. I encourage you to use the vectorstore
@@ -46,65 +47,56 @@ In 2022, Baxter Auto's marketing performance showed a distinct pattern when comp
 
 Overall, while Baxter Auto had much lower visibility in terms of impressions and clicks, their campaigns were more efficient, achieving higher engagement (CTR) and at a lower cost per engagement (CPC) compared to the broader industry benchmarks. This suggests that Baxter Auto's campaigns were highly targeted and effective at engaging a smaller, perhaps more relevant audience.
 
----
+---""",
+    "Baxter-Auto": """I am a marketing agent for Baxter-Auto...""",
+    "TapClicks": """I am a marketing agent for TapClicks..."""
+}
 
-"""
+def create_rag_agent(mode):
+    system_prompt_str = system_prompts.get(mode, system_prompts["default"])
 
-prompt = ChatPromptTemplate.from_messages(
-    [
-        (
-            "system",
-            system_prompt_str
-        ),
-        MessagesPlaceholder(variable_name="chat_history"),
-        ("human", "{input}"),
-        MessagesPlaceholder(variable_name="agent_scratchpad"),
-    ]
-)
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", system_prompt_str),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("human", "{input}"),
+            MessagesPlaceholder(variable_name="agent_scratchpad"),
+        ]
+    )
 
-# Set agent tools
-tools = [
-    # Tool(
-    #     name="LifetimeValueCalculator",
-    #     func=get_advertiser_ltv_value,
-    #     description="""Use this function to calculate the lifetime value at 
-    #     the advertiser level."""
-    # ),
-    Tool(
-        name="SnowflakeSQL",        
-        func=sql_agent.invoke,
-        description="""Use this to query advertiser data that you could not retrieve from
+    tools = [
+        Tool(
+            name="SnowflakeSQL",
+            func=sql_agent.invoke,
+            description="""Use this to query advertiser data that you could not retrieve from
 vectorstore. For instance, you can use this to retrieve specific data about a particular
 campaign that the advertiser ran."""
-    ),
-    Tool(
-        name="VectorStore",
-        func=retriever.invoke,
-        description="""Use this when you need to retrieve contexts about advertiser
+        ),
+        Tool(
+            name="VectorStore",
+            func=set_retriever(mode).invoke,
+            description="""Use this when you need to retrieve contexts about advertiser
 and industry level data. The vectorstore contains the snapshots of the latest trends
 including impression, clicks, spend, click-through-rate (CTR) and cost-per-click (CPC). This
 will help you answer questions such as 'How's the marketing performance the past couple months?',
-'How's the automotive industry doing?, 'What other ad platform do you recommend I use?''"""
+'How's the automotive industry doing?', 'What other ad platform do you recommend I use?'"""
+        )
+    ]
+
+    chat_model = ChatOpenAI(
+        model=AGENT_MODEL,
+        temperature=0
     )
-]
 
-# Instantiate chat model
-chat_model = ChatOpenAI(
-    model=AGENT_MODEL,
-    temperature=0
-)
+    rag_agent = create_openai_functions_agent(
+        llm=chat_model,
+        prompt=prompt,
+        tools=tools
+    )
 
-# Instantiate a rag agent
-rag_agent = create_openai_functions_agent(
-    llm=chat_model,
-    prompt=prompt,
-    tools=tools
-)
-
-# Create an agent executor
-rag_agent_executor = AgentExecutor(
-    agent=rag_agent,
-    tools=tools,
-    return_intermediate_steps=True,
-    verbose=True
-)
+    return AgentExecutor(
+        agent=rag_agent,
+        tools=tools,
+        return_intermediate_steps=True,
+        verbose=True
+    )

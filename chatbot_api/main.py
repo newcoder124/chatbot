@@ -1,7 +1,10 @@
 from fastapi import FastAPI, Depends
 from pydantic import BaseModel
+from fastapi.responses import StreamingResponse
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain.memory import ChatMessageHistory
+import asyncio
+import json
 
 # from db import snowflake_db
 from models.rag_query import QueryInput, QueryOutput
@@ -64,12 +67,17 @@ def get_executor(request: RagAgentRequest):
 
 @app.post("/rag-agent")
 async def ask_rag_agent(request: RagAgentRequest, executor=Depends(get_executor)) -> QueryOutput:
+    async def text_streamer():
+        response = executor.invoke({
+            "input": request.text,
+        }, {"configurable": {"session_id": request.session_id}})
+        
+        # Send intermediate steps
+        for step in response["intermediate_steps"]:
+            yield json.dumps({"type": "step", "content": str(step)}) + "\n"
+            await asyncio.sleep(0.1)  # Simulate delay for streaming
+        
+        # Send the final output
+        yield json.dumps({"type": "output", "content": response["output"]})
 
-    response = executor.invoke({
-        "input": request.text,
-    }, {"configurable": {"session_id": request.session_id}})
-    
-    response["intermediate_steps"] = [
-        str(s) for s in response["intermediate_steps"]
-    ]
-    return {"input": response["input"], "output": response["output"], "intermediate_steps": response["intermediate_steps"]}
+    return StreamingResponse(text_streamer(), media_type="application/json")

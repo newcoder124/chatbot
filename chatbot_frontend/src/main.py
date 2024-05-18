@@ -1,4 +1,5 @@
 import os
+import json
 import requests
 import streamlit as st
 
@@ -41,25 +42,34 @@ if prompt := st.chat_input("What do you want to know?"):
 
     data = {"text": prompt, "session_id": st.session_state.session_id, "mode": user_mode}
 
+    placeholder = st.empty()
+    explanation_placeholder = st.empty()
     with st.spinner("Searching for an answer..."):
-        response = requests.post(CHATBOT_URL, json=data)
+        streamed_text = ""
+        explanation = [] 
+        with requests.post(CHATBOT_URL, json=data, stream=True) as response:
+            if response.status_code == 200:
+                for chunk in response.iter_lines():
+                    if chunk:
+                        decoded_chunk = chunk.decode('utf-8')
+                        message = json.loads(decoded_chunk)
+                        if message["type"] == "step":
+                            explanation.append(message["content"])
+                        elif message["type"] == "output":
+                            streamed_text = message["content"]
+                            placeholder.markdown(streamed_text)
+            else:
+                output_text = """An error occurred while processing your message.
+                Please try again or rephrase your message."""
+                placeholder.markdown(output_text)
 
-        if response.status_code == 200:
-            output_text = response.json()["output"]
-            explanation = response.json()["intermediate_steps"]
-
-        else:
-            output_text = """An error occurred while processing your message.
-            Please try again or rephrase your message."""
-            explanation = output_text
-
-    st.chat_message("assistant").markdown(output_text)
+    # explanation = response.json()["intermediate_steps"]
     st.status("How was this generated", state="complete").info(explanation)
 
     st.session_state.messages.append(
         {
             "role": "assistant",
-            "output": output_text,
+            "output": streamed_text,
             "explanation": explanation,
         }
     )

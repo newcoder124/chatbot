@@ -37,8 +37,6 @@ def set_retriever(mode):
             {"advertiser": mode}
         ]}
 
-    print(filter)
-
     return vectorstore.as_retriever(
         search_type='similarity', 
         search_kwargs={

@@ -58,7 +58,7 @@ def get_agent_executor(mode: str):
         output_messages_key="output",
         history_messages_key="chat_history"
     )
-    
+
     return conversational_agent_executor
 
 def get_executor(request: RagAgentRequest):
@@ -78,6 +78,7 @@ async def ask_rag_agent(request: RagAgentRequest, executor=Depends(get_executor)
             await asyncio.sleep(0.1)  # Simulate delay for streaming
         
         # Send the final output
-        yield json.dumps({"type": "output", "content": response["output"]})
+        output = response['output']
+        yield json.dumps({"type": "output", "content": output})
 
     return StreamingResponse(text_streamer(), media_type="application/json")

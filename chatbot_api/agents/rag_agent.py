@@ -1,11 +1,16 @@
 import os
 from dotenv import load_dotenv
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain.tools import Tool
 from langchain.agents import create_openai_functions_agent, Tool, AgentExecutor
 from langchain_openai import ChatOpenAI
 from chains.snowflake_sql_chain import sql_agent
 from chains.vectorstore_chain import set_retriever
 from tools.ltv_calculator import get_advertiser_ltv_value
+from tools.chart_tool import ChartTool
+
+# ChartTool Agent
+chart_tool = ChartTool()
 
 # Load environment variables from .env file
 load_dotenv()
@@ -50,7 +55,23 @@ Overall, while Baxter Auto had much lower visibility in terms of impressions and
 
 ---""",
     "Baxter-Auto": """I am a marketing agent for Baxter-Auto...""",
-    "TapClicks": """You are a data-driven marketing expert who works for TapClicks.
+    "TapClicks": """You are a marketing expert. I want you to always display your output in the following manner. Your task
+is to analyze and return data in a format that can be rendered in a frontend application.
+
+---- Required Format:
+
+If you are only returning commentary, use this format.
+
+{{"commentary": "your description"}}
+
+If you are only returning commentary and data use this format. Make sure to include all the columns and values you have generated.
+
+{{"commentary": "your description", "plot": "bar_chart, line_chart, or scatter_chart", "index": "Whichever column should be the x axis from chart_data", "chart_data": {{"column": [value1, value2, ...], "column2": [value1, value2, ...], ...}}}}
+
+* Do not include any text outside of this structure!
+
+----
+
 You specialize in generating in-depth insights and/or recommendation that can help
 marketers understand patterns in data and, ultimately, help improve marketing performance.
 
@@ -73,7 +94,7 @@ is seeing increasing trend.' Rather, be specific like 'The advertiser is seeing 
 trend in CTC and impression by 10 percent for the past 5 months.'
 3. Be thorough. I want your analysis to have substance that can be helpful for the marketer.
 
-# Format
+# Commentary Format
 1. Make you response no more than 400 words.
 2. If you display CTR, represent the values in the percent form.
 3. If your analysis requires a lot of numbers, display the summary in a table. Make sure you
@@ -169,6 +190,8 @@ suggesting effective targeting."
 """
 }
 
+from pydantic import Field
+
 def create_rag_agent(mode):
     system_prompt_str = system_prompts.get(mode, system_prompts["default"])
 
@@ -211,9 +234,11 @@ will help you answer questions such as 'How's the marketing performance the past
         tools=tools
     )
 
-    return AgentExecutor(
+    agent_executor = AgentExecutor(
         agent=rag_agent,
         tools=tools,
         return_intermediate_steps=True,
         verbose=True
     )
+
+    return agent_executor

@@ -1,7 +1,11 @@
 import os
 import json
 import requests
+import numpy as np
+import pandas as pd
 import streamlit as st
+from utility import parse_message_content
+
 
 CHATBOT_URL = os.getenv("CHATBOT_URL", "http://localhost:8000/rag-agent")
 SET_MODE_URL = os.getenv("SET_MODE_URL", "http://localhost:8000/set-mode")
@@ -56,14 +60,27 @@ if prompt := st.chat_input("What do you want to know?"):
                         if message["type"] == "step":
                             explanation.append(message["content"])
                         elif message["type"] == "output":
-                            streamed_text = message["content"]
+                            chatbot_response = parse_message_content(message['content'])
+                            streamed_text = chatbot_response['commentary'].replace("$", "\$")
                             placeholder.markdown(streamed_text)
             else:
                 output_text = """An error occurred while processing your message.
                 Please try again or rephrase your message."""
                 placeholder.markdown(output_text)
 
-    # explanation = response.json()["intermediate_steps"]
+    chart_data = None
+    content = parse_message_content(message['content'])
+    if "chart_data" in content:
+        chart_data = pd.DataFrame(content["chart_data"])
+        chart_data = chart_data.set_index(content["index"])
+        chart_type = content["plot"]
+        if chart_type == "bar_chart":
+            st.bar_chart(chart_data)
+        elif chart_type == "line_chart":
+            st.line_chart(chart_data)
+        elif chart_type == "scatter_chart":
+            st.scatter_chart(chart_data)
+
     st.status("How was this generated", state="complete").info(explanation)
 
     st.session_state.messages.append(
@@ -71,5 +88,6 @@ if prompt := st.chat_input("What do you want to know?"):
             "role": "assistant",
             "output": streamed_text,
             "explanation": explanation,
+            "chart_data": chart_data.to_dict() if chart_data is not None else None,
         }
     )

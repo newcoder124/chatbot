@@ -72,6 +72,8 @@ that a particular advertiser uses.
 month, Ad channel across key metrics. If you get specific questions that are more granular, you may need to consider using Snowflake
 to generate a valid SQL.
 
+3. TimeSeriesForecast - Use this to forecast time series trend.
+
 --- 
 
 Now, here are the requirements you should follow:
@@ -214,6 +216,37 @@ Structuring the response in a logical manner that's easy to follow.
 
 from pydantic import Field
 
+###
+from prophet import Prophet
+from datetime import datetime
+import pandas as pd
+import json
+
+def forecast_time_series(data: str) -> str:
+    try:
+        # Load the data
+        df = pd.read_json(data)
+        
+        # Prepare the data for Prophet
+        df.rename(columns={"date": "ds", "value": "y"}, inplace=True)
+        
+        # Fit the model
+        model = Prophet()
+        model.fit(df)
+        
+        # Make a future dataframe for predictions
+        future = model.make_future_dataframe(periods=30)  # Forecast for next 30 days
+        forecast = model.predict(future)
+        
+        # Prepare the output
+        forecast_output = forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail(30)
+        return forecast_output.to_json(orient="records")
+    
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+###
+
 def create_rag_agent(mode):
     system_prompt_str = system_prompts.get(mode, system_prompts["default"])
 
@@ -242,6 +275,12 @@ and industry level data. The vectorstore contains the snapshots of the latest tr
 including impression, clicks, spend, click-through-rate (CTR) and cost-per-click (CPC). This
 will help you answer questions such as 'How's the marketing performance the past couple months?',
 'How's the automotive industry doing?', 'What other ad platform do you recommend I use?'"""
+        ),
+        Tool(
+            name="TimeSeriesForecast",
+            func=forecast_time_series,
+            description="""Use this to forecast future values of a time series data. 
+            Provide a JSON string containing the historical data with columns 'date' and 'value'."""
         )
     ]
 

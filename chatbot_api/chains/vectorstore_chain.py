@@ -31,16 +31,22 @@ vectorstore = PineconeVectorStore.from_existing_index(
 # Create a retriever
 def set_retriever(mode):
     filter = None
-    if mode == "Baxter-Auto":
-        filter={"$or": [
-            {"vertical": 'Automotive'},
-            {"advertiser": mode}
-        ]}
+    if mode == "juno":
+        filter = {
+            "$or": [
+                {"subdomain": mode},
+                {"subdomain": {"$exists": False}}
+            ]
+        }
 
     return vectorstore.as_retriever(
         search_type='similarity', 
         search_kwargs={
-            'k': 5,
+            'k': 10,
             'filter': filter
         }
     )
+
+# for k in set_retriever('juno').invoke("How's the automotive industry doing?"):
+#     print(k)
+#     print('')

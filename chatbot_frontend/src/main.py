@@ -6,9 +6,8 @@ import pandas as pd
 import streamlit as st
 from utility import parse_message_content
 
-
 # Add logo to the sidebar
-st.sidebar.image("./logo.png", width=250)  # Adjust the width as needed
+st.sidebar.image("./logo.png", width=250) 
 
 # Add user mode dropdown to the sidebar
 user_mode = st.sidebar.selectbox("Select User Mode", ["TapClicks", "juno"])

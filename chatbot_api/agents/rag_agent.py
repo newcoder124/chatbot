@@ -7,6 +7,7 @@ from langchain_openai import ChatOpenAI
 from chains.snowflake_sql_chain import sql_agent
 from chains.vectorstore_chain import set_retriever
 from tools.ltv_calculator import get_advertiser_ltv_value
+from tools.forecast_tool import forecast_time_series
 from tools.chart_tool import ChartTool
 
 # ChartTool Agent
@@ -201,6 +202,19 @@ GROUP BY 1;
 # Requirement 9:
 Do not make up numbers if the SnowFlakes table does not produce any output! Just return a response that you do not know!
 
+# Requirement 10:
+If you are asked to generate and plot a forecast, make sure to create a table with historical and forecast columns. The
+user wants to see both, but do not merge the time series into a single column. For instance, make sure the chart_data
+contains the following structure. Make sure that the arrays are in the same length!
+
+"chart_data": {{
+    "date": [value1, value2, ....],
+    "historical": [value1, value2, ....],
+    "forecast": [value1, value2, ....],
+    ...
+}}
+
+
 ---
 
 Here's how you will be evaluated. Maximize the quality of the response based on the following. Evaluation:
@@ -361,6 +375,11 @@ GROUP BY 1;
 # Requirement 9:
 Do not make up numbers if the SnowFlakes table does not produce any output! Just return a response that you do not know!
 
+# Requirement 10:
+If you are asked to generate and plot a forecast, make sure to create a table with historical and forecast columns. The
+user wants to see both, but do not merge the time series into a single column.
+
+
 ---
 
 Here's how you will be evaluated. Maximize the quality of the response based on the following. Evaluation:
@@ -375,40 +394,7 @@ used to illustrate trends.
 Structuring the response in a logical manner that's easy to follow.
 """
 }
-
-from pydantic import Field
-
 ###
-from prophet import Prophet
-from datetime import datetime
-import pandas as pd
-import json
-
-def forecast_time_series(data: str) -> str:
-    try:
-        # Load the data
-        df = pd.read_json(data)
-        
-        # Prepare the data for Prophet
-        df.rename(columns={"date": "ds", "value": "y"}, inplace=True)
-        
-        # Fit the model
-        model = Prophet()
-        model.fit(df)
-        
-        # Make a future dataframe for predictions
-        future = model.make_future_dataframe(periods=30)  # Forecast for next 30 days
-        forecast = model.predict(future)
-        
-        # Prepare the output
-        forecast_output = forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail(30)
-        return forecast_output.to_json(orient="records")
-    
-    except Exception as e:
-        return json.dumps({"error": str(e)})
-
-###
-
 def create_rag_agent(mode, sql_connection=None):
     system_prompt_str = system_prompts.get(mode, system_prompts["default"])
 

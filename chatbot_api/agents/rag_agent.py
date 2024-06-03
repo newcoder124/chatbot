@@ -101,6 +101,8 @@ the data you provide is displayed on the streamlit plot.
     }}
 }}
 
+I repeat AGAIN, follow this output structure at all times! 
+
 # Requirement 2:
 Identify the type of marketing questions posed to you then, if necessary, choose the appropriate
 tools to help you conduct your analysis and provide a thorough insight in your commentary. The type of questions
@@ -214,6 +216,11 @@ contains the following structure. Make sure that the arrays are in the same leng
     ...
 }}
 
+# Requirement 11:
+When you invoke the vectorstore, be specific with your query. For instance, if the question is, "What other ad platforms do you recommend fullspeed use?".
+You should first discern the type of industry that the advertiser belongs to, then discern look up relevant information based on the question
+intent.
+
 
 ---
 
@@ -273,6 +280,8 @@ the data you provide is displayed on the streamlit plot.
         ...,
     }}
 }}
+
+I repeat AGAIN, follow this output structure at all times! 
 
 # Requirement 2:
 Identify the type of marketing questions posed to you then, if necessary, choose the appropriate
@@ -377,8 +386,20 @@ Do not make up numbers if the SnowFlakes table does not produce any output! Just
 
 # Requirement 10:
 If you are asked to generate and plot a forecast, make sure to create a table with historical and forecast columns. The
-user wants to see both, but do not merge the time series into a single column.
+user wants to see both, but do not merge the time series into a single column. For instance, make sure the chart_data
+contains the following structure. Make sure that the arrays are in the same length!
 
+"chart_data": {{
+    "date": [value1, value2, ....],
+    "historical": [value1, value2, ....],
+    "forecast": [value1, value2, ....],
+    ...
+}}
+
+# Requirement 11:
+When you invoke the vectorstore, be specific with your query. For instance, if the question is, "What other ad platforms do you recommend fullspeed use?".
+You should first discern the type of industry that the advertiser belongs to, then discern look up relevant information based on the question
+intent.
 
 ---
 
@@ -394,6 +415,19 @@ used to illustrate trends.
 Structuring the response in a logical manner that's easy to follow.
 """
 }
+
+
+# from langchain.output_parsers import JsonOutputParser
+from langchain_core.output_parsers import JsonOutputParser
+from pydantic import BaseModel, Field
+
+class OutputSchema(BaseModel):
+    response: str
+    metadata: dict
+
+output_parser = JsonOutputParser(output_schema=OutputSchema)
+
+
 ###
 def create_rag_agent(mode, sql_connection=None):
     system_prompt_str = system_prompts.get(mode, system_prompts["default"])
@@ -440,7 +474,7 @@ will help you answer questions such as 'How's the marketing performance the past
     rag_agent = create_openai_functions_agent(
         llm=chat_model,
         prompt=prompt,
-        tools=tools
+        tools=tools,
     )
 
     agent_executor = AgentExecutor(
